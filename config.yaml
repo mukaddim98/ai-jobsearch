@@ -1,0 +1,56 @@
+# Search settings. Secrets and machine-specific paths live in .env, not here.
+
+# Goes straight into LinkedIn's keyword box, so LinkedIn boolean syntax applies:
+# quoted phrases, AND / OR / NOT in capitals, parentheses.
+# PLACEHOLDER - replace with your real query.
+query: '("software engineer" OR "data engineer") NOT (intern OR internship)'
+
+# One LinkedIn search per entry. geo_id pins the location precisely;
+# params are extra LinkedIn URL filters (f_WT=2 means remote only).
+searches:
+  - name: Canada
+    location: Canada
+    geo_id: "101174742"
+  - name: US remote
+    location: United States
+    geo_id: "103644278"
+    params:
+      f_WT: "2"
+
+# Look-back window when you run `jobsearch` with no number.
+default_days: 7
+
+# Cap per search. Apify bills about $1 per 1,000 results.
+max_results_per_search: 100
+
+# The Apify free plan gives $5 of credit per monthly cycle. When it runs out, the
+# account is blocked until the next cycle (you are never charged). These limits
+# keep a run from using up the month's credit early.
+apify:
+  monthly_budget_usd: 4.50       # refuse to run once this cycle's usage reaches this
+  max_run_usd: 0.50              # hard per-run ceiling, enforced by Apify itself
+  price_per_1000_results: 1.00   # free-plan price of the scraper actor
+
+# Postings matching any of these are kept in Raw Postings but marked
+# "filtered" and never sent to the LLM. Matching is case-insensitive, whole-word.
+exclude:
+  title_keywords: [intern, internship, co-op, coop, work term]
+  employment_types: [Internship]
+  description_keywords: []
+  companies: []
+
+# A Gemini key can only be charged if its Google project has billing linked, so keep
+# billing off. Free-tier limits are per project per model, reset at midnight Pacific
+# time, and are listed at https://aistudio.google.com/rate-limit.
+scoring:
+  model: gemini-3.5-flash-lite   # scores each posting: many calls, so use the model with the largest free daily quota
+  profile_model: gemini-3.8-flash  # builds profile.md: one call, only when your corpus changes
+  threshold: 70                  # fit score (0-100) needed to reach the Shortlist tab
+  requests_per_minute: 8         # stay under the free-tier per-minute limit
+  # Gemini calls allowed per Pacific day, counted across both machines through the
+  # Runs tab. Set it just under the model's free daily limit on the page above.
+  # Postings beyond it stay "pending" for `jobsearch rescore`.
+  daily_request_cap: 200
+
+corpus:
+  dir: corpus                    # relative to this folder; override per machine with CORPUS_DIR in .env

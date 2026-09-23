@@ -1,0 +1,10 @@
+.env
+.venv/
+.cache/
+secrets/
+profile.md
+corpus/*
+!corpus/README.md
+__pycache__/
+*.egg-info/
+.pytest_cache/
