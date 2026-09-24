@@ -1,7 +1,7 @@
 from urllib.parse import parse_qs, urlparse
 
 from jobsearch.prefilter import skip_reason
-from jobsearch.scrape import build_url, dedupe, normalize
+from jobsearch.scrape import build_url, dedupe, lane_queries, normalize
 from jobsearch.score import Fit, bullets, total
 from jobsearch.sheets import _literal
 
@@ -15,6 +15,26 @@ def test_build_url_encodes_boolean_query_and_window():
     assert q["geoId"] == ["103644278"] and q["f_WT"] == ["2"]
 
 
+def test_lane_queries_filter_by_tier_and_append_exclusions():
+    cfg = {"lanes": [{"name": "a", "tier": 1, "query": '("x" OR y)'},
+                     {"name": "b", "tier": 3, "query": "z"}],
+           "append_to_every_query": ['NOT ("p q")', "NOT r"]}
+    assert lane_queries(cfg, [1]) == [("a", '("x" OR y) NOT ("p q") NOT r')]
+    assert [n for n, _ in lane_queries(cfg, [1, 3])] == ["a", "b"]
+
+
+def test_real_config_lanes_follow_linkedin_rules():
+    import re
+    from jobsearch.config import ROOT
+    import yaml
+    cfg = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
+    for name, query in lane_queries(cfg, [1, 2, 3]):
+        assert query.count("(") == query.count(")"), name
+        assert query.count('"') % 2 == 0, name
+        assert not re.search(r"[“”]", query), f"{name}: curly quotes"
+        assert not re.search(r"\b(and|or|not)\b", re.sub(r'"[^"]*"', "", query)), f"{name}: lowercase operator"
+
+
 def test_normalize_handles_lists_missing_fields_and_id_from_link():
     p = normalize({"link": "https://www.linkedin.com/jobs/view/senior-dev-at-acme-4012345678",
                    "title": "Senior Dev", "workplaceTypes": ["Hybrid"], "salaryInfo": ["$100K", "$120K"]})
@@ -22,6 +42,13 @@ def test_normalize_handles_lists_missing_fields_and_id_from_link():
     assert p["workplace"] == "Hybrid"
     assert p["salary"] == "$100K, $120K"
     assert p["company"] == "" and p["description"] == ""
+
+
+def test_normalize_reads_salary_and_remote_search():
+    p = normalize({"id": 1, "salary": "$90K/yr - $110K/yr",
+                   "inputUrl": "https://www.linkedin.com/jobs/search/?keywords=x&f_E=3%2C4&f_WT=2"})
+    assert p["salary"] == "$90K/yr - $110K/yr" and p["workplace"] == "Remote"
+    assert normalize({"id": 2, "inputUrl": "https://www.linkedin.com/jobs/search/?keywords=x"})["workplace"] == ""
 
 
 def test_dedupe_drops_repeats_and_missing_ids():

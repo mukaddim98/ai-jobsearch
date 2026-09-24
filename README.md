@@ -2,7 +2,7 @@
 
 This tool runs one command, `jobsearch 3`, and does the following:
 
-1. Scrapes LinkedIn postings from the last 3 days, using your boolean query in each search listed in `config.yaml`. Scraping goes through Apify.
+1. Scrapes LinkedIn postings from the last 3 days through Apify. It runs one boolean search per lane in `config.yaml` (21 lanes in 3 tiers), in each location, with shared exclusions added to every search.
 2. Drops postings that are already in the sheet, matched by LinkedIn job ID.
 3. Prefilters out internships, co-ops and any exclusions you configure.
 4. Scores each new posting from 0 to 100 against your candidate profile with Gemini Flash-Lite, on the free tier. The score has four parts: core skills (40), domain (25), seniority (20) and hard requirements (15).
@@ -84,6 +84,6 @@ At the defaults, a run of 2 searches × 100 results costs about $0.20, so $4.50 
 
 ## Tuning
 
-- **Query, locations, exclusions, threshold**: edit `config.yaml`.
+- **Lanes, locations, exclusions, threshold**: edit `config.yaml`. `jobsearch 3 --tiers 1` searches only the tier-1 lanes, which costs less Apify credit.
 - **Scoring rubric and prompt**: edit `src/jobsearch/score.py`, then run `jobsearch rescore --all`.
 - Every posting gets a score, not just the shortlisted ones. Sort Raw Postings by Fit Score to check whether the threshold is set right.

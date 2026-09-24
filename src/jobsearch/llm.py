@@ -10,7 +10,7 @@ from google.genai import errors, types
 
 
 class QuotaExhausted(RuntimeError):
-    """No Gemini calls left today: either our own daily cap or Google's free-tier quota."""
+    """Gemini can't be called right now: our daily cap, Google's free-tier quota, or a paid project out of credit."""
 
 
 def quota_day() -> str:
@@ -48,6 +48,11 @@ class Gemini:
                 resp = self.client.models.generate_content(model=model, contents=prompt, config=config)
             except errors.APIError as e:
                 detail = f"{e.message} {e.details}"
+                if e.code == 402:
+                    raise QuotaExhausted(
+                        "This Gemini key's project has prepaid billing with no credit left, so it is not on "
+                        "the free tier. Disable billing on the project in AI Studio, or use a key from a "
+                        "project without billing.") from e
                 if e.code == 429 and "PerDay" in detail:
                     raise QuotaExhausted("Gemini's free daily quota is used up (resets midnight Pacific).") from e
                 if e.code not in (429, 500, 503):

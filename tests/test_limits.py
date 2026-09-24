@@ -58,6 +58,15 @@ def test_daily_quota_stops_immediately_without_retrying(gemini):
     assert g.calls == 1 and not [s for s in sleeps if s > 1]
 
 
+def test_paid_project_without_credit_stops_immediately(gemini):
+    depleted = errors.ClientError(402, {"error": {
+        "code": 402, "message": "Your prepayment credits are depleted.", "status": "RESOURCE_EXHAUSTED"}})
+    g, _ = gemini(10, depleted)
+    with pytest.raises(QuotaExhausted, match="not on the free tier"):
+        g.generate("m", "sys", "hi")
+    assert g.calls == 1
+
+
 def test_per_minute_limit_waits_as_asked_then_retries(gemini):
     g, sleeps = gemini(10, _quota_error("GenerateRequestsPerMinutePerProjectPerModel-FreeTier", "12s"), "ok")
     assert g.generate("m", "sys", "hi") == "ok"

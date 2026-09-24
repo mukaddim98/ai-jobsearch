@@ -6,7 +6,7 @@ from .config import Settings
 from .llm import Gemini, QuotaExhausted, quota_day
 from .prefilter import skip_reason
 from .profile import load_profile
-from .scrape import build_url, dedupe, monthly_usage, normalize, run_actor, run_cap_usd
+from .scrape import build_url, dedupe, lane_queries, monthly_usage, normalize, run_actor, run_cap_usd
 from .score import bullets, score_posting, total
 from .sheets import Sheet
 
@@ -29,8 +29,11 @@ def gemini(s: Settings, sheet: Sheet) -> Gemini:
     return Gemini(s.secret("GEMINI_API_KEY"), sc["requests_per_minute"], sc["daily_request_cap"] - used)
 
 
-def scrape(s: Settings, days: int) -> tuple[list[dict], float]:
+def scrape(s: Settings, days: int, tiers: list[int]) -> tuple[list[dict], float]:
     """Returns unique postings and Apify's usage for the cycle after the run."""
+    lanes = lane_queries(s.cfg, tiers)
+    if not lanes:
+        raise SystemExit(f"No lanes in tier(s) {tiers}.")
     token, ap = s.secret("APIFY_TOKEN"), s.cfg["apify"]
     usage = monthly_usage(token)
     cap = run_cap_usd(usage, ap["monthly_budget_usd"], ap["max_run_usd"])
@@ -38,9 +41,10 @@ def scrape(s: Settings, days: int) -> tuple[list[dict], float]:
         raise SystemExit(f"Apify budget reached: ${usage.used_usd:.2f} used this cycle against a "
                          f"${ap['monthly_budget_usd']:.2f} budget. The cycle resets {usage.cycle_end}.")
 
-    urls = [build_url(s.cfg["query"], search, days) for search in s.cfg["searches"]]
+    urls = [build_url(query, search, days) for _, query in lanes for search in s.cfg["searches"]]
     names = ", ".join(x["name"] for x in s.cfg["searches"])
-    print(f"Searching LinkedIn ({names}), last {days} day(s)...")
+    print(f"Searching LinkedIn: {len(lanes)} lane(s) in tier(s) {', '.join(map(str, tiers))} "
+          f"x {names}, last {days} day(s)...")
     print(f"  Apify: ${usage.used_usd:.2f} used this cycle; this run is capped at ${cap:.2f}")
     max_items = int(cap / ap["price_per_1000_results"] * 1000)
     items = run_actor(token, urls, s.cfg["max_results_per_search"], cap, max_items)
@@ -89,7 +93,7 @@ def score_rows(s: Settings, sheet: Sheet, llm: Gemini, rescore_all: bool = False
                 batch = []
     except QuotaExhausted as e:
         print(f"  {e} Stopped with {len(targets) - scored - errors} posting(s) not scored; "
-              "`jobsearch rescore` picks up pending ones after the reset.")
+              "they stay pending for `jobsearch rescore`.")
     finally:
         sheet.write_scores(batch)
     return scored, errors
@@ -111,8 +115,8 @@ def finish(s: Settings, sheet: Sheet, stats: dict, llm: Gemini | None, rescore_a
         print(f"Done: {scored} scored, {shortlisted} on the shortlist, {pending} pending, {errors} errors.")
 
 
-def run(s: Settings, days: int, dry_run: bool = False, no_score: bool = False) -> None:
-    postings, apify_used = scrape(s, days)
+def run(s: Settings, days: int, tiers: list[int], dry_run: bool = False, no_score: bool = False) -> None:
+    postings, apify_used = scrape(s, days, tiers)
     exclude = s.cfg.get("exclude") or {}
     for p in postings:
         reason = skip_reason(p, exclude)
@@ -131,7 +135,7 @@ def run(s: Settings, days: int, dry_run: bool = False, no_score: bool = False) -
     sheet.append_raw(new, _now())
     print(f"  {len(new)} new ({filtered} filtered out), {len(postings) - len(new)} already in the sheet")
 
-    stats = {"Command": "run", "Days": days, "Scraped": len(postings), "New": len(new),
+    stats = {"Command": f"run tiers {','.join(map(str, tiers))}", "Days": days, "Scraped": len(postings), "New": len(new),
              "Filtered": filtered, "Apify Cycle USD": round(apify_used, 2)}
     finish(s, sheet, stats, None if no_score else gemini(s, sheet))
 

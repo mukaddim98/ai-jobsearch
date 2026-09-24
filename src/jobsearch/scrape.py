@@ -13,6 +13,13 @@ ACTOR = "curious_coder~linkedin-jobs-scraper"
 DESCRIPTION_LIMIT = 40_000  # Sheets caps a cell at 50k characters
 
 
+def lane_queries(cfg: dict, tiers: list[int]) -> list[tuple[str, str]]:
+    """(lane name, full LinkedIn query) for each lane in the given tiers, in config order."""
+    suffix = " ".join(cfg.get("append_to_every_query") or [])
+    return [(lane["name"], f"{lane['query']} {suffix}".strip())
+            for lane in cfg["lanes"] if lane["tier"] in tiers]
+
+
 def build_url(query: str, search: dict, days: int) -> str:
     params = {"keywords": query, "location": search["location"]}
     if search.get("geo_id"):
@@ -99,7 +106,8 @@ def job_id(item: dict) -> str:
 
 def normalize(item: dict) -> dict:
     workplace = _text(item.get("workplaceTypes"))
-    if not workplace and item.get("workRemoteAllowed"):
+    # This actor doesn't report workplace type, but a search with LinkedIn's remote-only filter does tell us.
+    if not workplace and (item.get("workRemoteAllowed") or "f_WT=2" in (item.get("inputUrl") or "")):
         workplace = "Remote"
     return {
         "id": job_id(item),
@@ -110,7 +118,7 @@ def normalize(item: dict) -> dict:
         "workplace": workplace,
         "seniority": _text(item.get("seniorityLevel")),
         "employment_type": _text(item.get("employmentType")),
-        "salary": _text(item.get("salaryInfo")),
+        "salary": _text(item.get("salary") or item.get("salaryInfo")),
         "applicants": _text(item.get("applicantsCount")),
         "link": _text(item.get("link")),
         "apply_url": _text(item.get("applyUrl")),

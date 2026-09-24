@@ -1,42 +1,152 @@
 # Search settings. Secrets and machine-specific paths live in .env, not here.
 
-# Goes straight into LinkedIn's keyword box, so LinkedIn boolean syntax applies:
-# quoted phrases, AND / OR / NOT in capitals, parentheses.
-# PLACEHOLDER - replace with your real query.
-query: '("software engineer" OR "data engineer") NOT (intern OR internship)'
+# One LinkedIn search per lane per location. Each query goes straight into LinkedIn's
+# keyword box, so: AND / OR / NOT in capitals, straight quotes, every OR group in
+# parentheses, and never bare `AI` or "artificial intelligence" (Ontario's hiring
+# disclosure puts those phrases in unrelated postings).
+# Lanes run in the order listed, tier 1 first. If a run reaches apify.max_run_usd,
+# the lanes at the end are the ones that miss out.
+lanes:
+  # 0. Current role and its equivalents
+  - name: Current role (AI analyst)
+    tier: 1
+    query: '("AI analyst" OR "artificial intelligence analyst" OR "AI specialist" OR "AI strategist" OR "AI advisor" OR "AI lead" OR "generative AI specialist" OR "emerging technology analyst") AND ("AI governance" OR "responsible AI" OR "AI adoption" OR "AI strategy" OR "Microsoft 365 Copilot" OR "Copilot Studio")'
 
-# One LinkedIn search per entry. geo_id pins the location precisely;
-# params are extra LinkedIn URL filters (f_WT=2 means remote only).
+  # 1.1 AI governance / responsible AI
+  - name: AI governance titles
+    tier: 1
+    query: '("AI governance" OR "responsible AI" OR "AI risk" OR "AI assurance" OR "trustworthy AI" OR "AI compliance" OR "AI ethics" OR "AI policy") NOT ("credit risk" OR "market risk" OR "IFRS 9" OR Basel)'
+  - name: AI governance duties
+    tier: 1
+    query: '("algorithmic impact assessment" OR "AI impact assessment" OR "AI risk assessment" OR "NIST AI RMF" OR "ISO 42001" OR "ISO/IEC 42001" OR "EU AI Act" OR "Directive on Automated Decision-Making" OR "AI use case intake" OR "AI inventory")'
+  - name: AI governance (federal)
+    tier: 1
+    query: '("Directive on Automated Decision-Making" OR "algorithmic impact assessment" OR "National Artificial Intelligence Strategy" OR "National AI Strategy") AND ("Government of Canada" OR federal OR "public service")'
+
+  # 1.2 AI enablement / adoption
+  - name: AI adoption and enablement
+    tier: 1
+    query: '("AI adoption" OR "AI enablement" OR "Copilot adoption" OR "AI literacy" OR "AI champion" OR "AI training lead")'
+  - name: Microsoft 365 Copilot adoption
+    tier: 1
+    query: '("Microsoft 365 Copilot" OR "M365 Copilot" OR "Copilot Chat" OR "Copilot Studio") AND (adoption OR enablement OR training OR champions OR "change management") NOT ("change advisory board" OR ITIL)'
+  - name: Modern Work (Microsoft 365 practice)
+    tier: 1
+    query: '("modern work" OR "modern workplace") AND ("Microsoft 365" OR M365 OR Copilot OR Teams)'
+
+  # 1.3 Microsoft partner / consultancy
+  - name: AI and Microsoft consultant titles
+    tier: 1
+    query: '("AI consultant" OR "Copilot consultant" OR "modern work consultant" OR "Power Platform consultant" OR "Microsoft 365 consultant" OR "AI transformation consultant") NOT ("Finance and Operations" OR "X++" OR "Business Central" OR "quota-carrying" OR "sales quota")'
+  - name: Microsoft AI consulting
+    tier: 1
+    query: '("Copilot Studio" OR "Power Platform" OR "Microsoft 365 Copilot" OR "Azure OpenAI") AND (consultant OR consulting OR "professional services" OR "client-facing")'
+
+  # 1.4 Public sector / higher ed
+  - name: Public sector and higher ed AI
+    tier: 1
+    query: '("AI governance" OR "responsible AI" OR "AI strategy" OR "AI adoption" OR "generative AI" OR "AI literacy") AND ("higher education" OR "post-secondary" OR "teaching and learning" OR "public sector" OR "Government of Canada" OR provincial OR municipal)'
+
+  # 2.1 Tech risk / GRC / vendor risk
+  - name: Tech risk and GRC (AI)
+    tier: 2
+    query: '("third-party risk" OR "third party risk" OR "vendor risk" OR TPRM OR "technology risk" OR "IT risk" OR GRC) AND ("AI risk" OR "AI governance" OR "generative AI" OR "AI systems" OR "AI vendor") NOT ("credit risk" OR "market risk" OR "IFRS 9")'
+  - name: HECVAT (university vendor risk)
+    tier: 2
+    query: 'HECVAT'
+
+  # 2.2 Technical privacy
+  - name: Technical privacy
+    tier: 2
+    query: '("privacy analyst" OR "privacy specialist" OR "privacy advisor" OR "privacy engineer" OR "privacy officer" OR "data protection" OR ATIP OR "access to information and privacy") AND ("privacy impact assessment" OR "privacy by design" OR PIPEDA OR PHIPA OR FIPPA OR PIIDPA OR "Law 25") NOT ("called to the bar" OR "Law Society" OR "legal counsel")'
+
+  # 2.3 AI program / product
+  - name: AI program and product
+    tier: 2
+    query: '("AI program manager" OR "AI product manager" OR "AI product owner" OR "AI project manager" OR "AI business analyst" OR "technical program manager") AND ("generative AI" OR "AI agents" OR "Copilot Studio" OR LLM OR "AI platform")'
+
+  # 2.4 AI solutions / intelligent automation (Microsoft tools)
+  - name: Intelligent automation
+    tier: 2
+    query: '("AI solutions" OR "intelligent automation" OR "AI automation" OR "Copilot Studio" OR "Power Automate" OR "AI Builder" OR "agent developer") AND (developer OR architect OR specialist OR engineer OR consultant) NOT (PLC OR SCADA OR "industrial automation" OR "Finance and Operations" OR "X++")'
+  - name: Microsoft AI agents and RAG
+    tier: 2
+    query: '("Copilot Studio" OR "Azure OpenAI" OR "Microsoft Foundry" OR "Azure AI Foundry" OR "Azure AI Search") AND ("retrieval-augmented" OR RAG OR agentic OR "AI agents")'
+
+  # 3.1 AI evaluation / quality
+  - name: LLM evaluation
+    tier: 3
+    query: '("AI evaluation" OR "LLM evaluation" OR "model evaluation" OR evals OR "AI quality" OR "GenAI testing") AND (LLM OR "large language model" OR "generative AI" OR "retrieval-augmented") NOT ("program evaluation" OR "monitoring and evaluation")'
+  - name: LLM evaluation tools
+    tier: 3
+    query: '(Ragas OR DeepEval OR Promptfoo OR "LLM-as-a-judge" OR groundedness OR "evaluation harness")'
+
+  # 3.2 AI security / red teaming
+  - name: AI security titles
+    tier: 3
+    query: '("AI red team" OR "AI red teaming" OR "AI security" OR "LLM security" OR "GenAI security" OR "adversarial AI" OR "AI safety")'
+  - name: AI security techniques
+    tier: 3
+    query: '("prompt injection" OR jailbreak OR "OWASP Top 10 for LLM" OR "MITRE ATLAS" OR "data poisoning" OR "model security")'
+
+  # 3.3 Applied generative AI engineer
+  - name: Applied GenAI engineer
+    tier: 3
+    query: '("generative AI engineer" OR "GenAI engineer" OR "AI engineer" OR "LLM engineer" OR "applied AI engineer" OR "AI developer") AND ("retrieval-augmented" OR RAG OR LangChain OR "Azure OpenAI" OR "vector search" OR "AI agents") NOT ("research scientist" OR NeurIPS OR ICML OR "PhD required")'
+
+# Appended to every lane's query. LinkedIn allows several NOT groups in one search.
+# Only exclude specific phrases; never sales, "business development", director,
+# manager, quota, student or "customer success" (good postings mention them all).
+append_to_every_query:
+  - 'NOT ("AI trainer" OR "AI rater" OR "data annotation" OR annotator OR "search quality rater" OR freelance OR "account executive" OR SDR OR BDR)'
+  - 'NOT ("not an existing vacancy" OR "not for an existing vacancy")'   # Ontario talent-pool postings
+  # Undecided, so off for now. Uncomment if they apply to you:
+  # - 'NOT ("bilingual imperative" OR "French essential")'              # if you don't have working French
+  # - 'NOT ("Top Secret" OR "TS/SCI" OR "US citizen" OR "U.S. citizen")'  # if your status rules these out
+
+# Which tiers a plain `jobsearch` run covers. Override per run with --tiers 1,2
+tiers: [1, 2, 3]
+
+# One LinkedIn search per entry. geo_id pins the location precisely; params are
+# extra LinkedIn URL filters: f_E=3,4 is Associate + Mid-Senior, f_WT=2 is remote only.
 searches:
   - name: Canada
     location: Canada
     geo_id: "101174742"
+    params:
+      f_E: "3,4"
   - name: US remote
     location: United States
     geo_id: "103644278"
     params:
+      f_E: "3,4"
       f_WT: "2"
 
 # Look-back window when you run `jobsearch` with no number.
 default_days: 7
 
-# Cap per search. Apify bills about $1 per 1,000 results.
-max_results_per_search: 100
+# Cap per lane per location. Over a 30-day window every lane filled all 20, so a
+# full run is 21 lanes x 2 locations x 20 = 840 results ($1.68). Shorter windows
+# return fewer. Lanes past max_run_usd get nothing.
+max_results_per_search: 20
 
 # The Apify free plan gives $5 of credit per monthly cycle. When it runs out, the
 # account is blocked until the next cycle (you are never charged). These limits
 # keep a run from using up the month's credit early.
 apify:
   monthly_budget_usd: 4.50       # refuse to run once this cycle's usage reaches this
-  max_run_usd: 0.50              # hard per-run ceiling, enforced by Apify itself
-  price_per_1000_results: 1.00   # free-plan price of the scraper actor
+  max_run_usd: 0.80              # hard per-run ceiling, enforced by Apify itself
+  price_per_1000_results: 2.00   # free-plan price of the scraper ($0.002 per result since Aug 2026)
 
 # Postings matching any of these are kept in Raw Postings but marked
 # "filtered" and never sent to the LLM. Matching is case-insensitive, whole-word.
+# A second net behind the NOT groups above, in case LinkedIn lets one through.
 exclude:
-  title_keywords: [intern, internship, co-op, coop, work term]
-  employment_types: [Internship]
-  description_keywords: []
+  title_keywords: [intern, internship, co-op, coop, work term, AI trainer, AI rater, annotator, search quality rater, freelance]
+  # Don't filter on LinkedIn's employment type: employers mis-tag senior roles as
+  # "Internship". The title keywords above catch real internships.
+  employment_types: []
+  description_keywords: [not an existing vacancy, not for an existing vacancy]
   companies: []
 
 # A Gemini key can only be charged if its Google project has billing linked, so keep
